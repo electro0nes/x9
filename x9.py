@@ -2,7 +2,7 @@ import argparse
 import json
 import requests
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-
+import os
 def print_banner():
     banner = """
     ============================================================
@@ -12,14 +12,13 @@ def print_banner():
     print(banner)
 
 def read_parameters(param_source):
-    if param_source.startswith('file:'):
+    if os.path.isfile(param_source):
         # Read parameters from a file
-        file_path = param_source[5:]  # Remove the 'file:' prefix
         try:
-            with open(file_path, 'r') as f:
+            with open(param_source, 'r') as f:
                 return [line.strip() for line in f if line.strip()]
         except FileNotFoundError:
-            raise FileNotFoundError(f"File not found: {file_path}")
+            raise FileNotFoundError(f"File not found: {param_source}")
     else:
         # Directly use the comma-separated parameters
         return param_source.split(',')
@@ -44,8 +43,7 @@ def fuzz_parameters(url, params, chunk_size, value, value_list, strategy, value_
             normal_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}?{'&'.join(all_params_with_value)}"
             generated_urls.add(normal_url)
 
-    elif strategy == 'combine':
-        if value_strategy == 'suffix':
+    elif strategy == 'combine' and value_strategy == 'suffix':
             for param in query_params.keys():
                 combined_params = query_params.copy()
                 for key in combined_params:
@@ -55,9 +53,15 @@ def fuzz_parameters(url, params, chunk_size, value, value_list, strategy, value_
                         combined_params[key] = combined_params[key][0]
                 combined_url = urlunparse(parsed_url._replace(query=urlencode(combined_params, doseq=True)))
                 generated_urls.add(combined_url)
+    elif strategy == 'combine' and value_strategy == 'replace':
+            for param in query_params.keys():
+                replace_params = query_params.copy()
+                replace_params[param] = value
+                replace_url = urlunparse(parsed_url._replace(query=urlencode(replace_params, doseq=True)))
+                generated_urls.add(replace_url)
+            
 
     elif strategy == 'ignore':
-        # Ignore mode: Append all parameters from the list with the given value
         if chunk_size > 1:
             for i in range(0, len(params), chunk_size):
                 chunk = params[i:i + chunk_size]
@@ -75,21 +79,7 @@ def fuzz_parameters(url, params, chunk_size, value, value_list, strategy, value_
         generated_urls.update(fuzz_parameters(url, params, chunk_size, value, value_list, 'combine', value_strategy))
         generated_urls.update(fuzz_parameters(url, params, chunk_size, value, value_list, 'ignore', value_strategy))
 
-    if value_strategy == 'suffix':
-        # Apply Suffix strategy on all parameters
-        for param in query_params.keys():
-            suffix_params = query_params.copy()
-            suffix_params[param] = suffix_params[param][0] + value
-            suffix_url = urlunparse(parsed_url._replace(query=urlencode(suffix_params, doseq=True)))
-            generated_urls.add(suffix_url)
 
-    elif value_strategy == 'replace':
-        # Apply Replace strategy on all parameters
-        for param in query_params.keys():
-            replace_params = query_params.copy()
-            replace_params[param] = value
-            replace_url = urlunparse(parsed_url._replace(query=urlencode(replace_params, doseq=True)))
-            generated_urls.add(replace_url)
 
     return generated_urls
 
@@ -123,12 +113,12 @@ def main():
     parser.add_argument('-c', '--chunk', help="Chunk size of parameters", type=int, default=15)
     parser.add_argument('-v', '--value', help="Single value for fuzzing", required=True)
     parser.add_argument('-vf', '--value-list', help="List of values for fuzzing")
-    parser.add_argument('-gs', '--generate_strategy', choices=['normal', 'ignore', 'combine', 'all'], default='all', help="""Select the mode strategy from the available choice:
+    parser.add_argument('-gs', '--generate_strategy', choices=['normal', 'ignore', 'combine', 'all'], help="""Select the mode strategy from the available choice:
         - Normal: Remove all parameters and put the wordlist
         - Combine: Pitchfork combine on the existing parameters
         - Ignore: Don't touch the URL and put the wordlist
         - All: All in one method""")
-    parser.add_argument('-vs', '--value_strategy', choices=['replace', 'suffix'], default='suffix', help="""Select the mode strategy from the available choices:
+    parser.add_argument('-vs', '--value_strategy', choices=['replace', 'suffix'], help="""Select the mode strategy from the available choices:
         - Replace: Replace the value with gathered value
         - Suffix: Append the value to the end of the parameters""")
     parser.add_argument('-s', '--silent', help="Silent mode", action='store_true')
@@ -143,11 +133,16 @@ def main():
         import sys
         sys.stdout = open('/dev/null', 'w')
 
-    try:
-        params = read_parameters(args.params)
-    except Exception as e:
-        print(f"Error reading parameters: {e}")
-        return
+    # Check if the params argument is provided
+    if args.params:
+        try:
+            params = read_parameters(args.params)
+        except Exception as e:
+            print(f"Error reading parameters: {e}")
+            return
+    else:
+        # If no params are provided, use an empty list
+        params = []
 
     # Store all generated URLs
     all_generated_urls = []
