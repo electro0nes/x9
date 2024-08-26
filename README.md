@@ -11,3 +11,11 @@ pip3 install -r requirements.txt
 ```py
 python3 x9.py -l urls.txt -v 'inject' -p file,text -gs generate_strategy -vs value_strategy -o json,text -c chunk -m post,get
 ```
+
+## Bash Profile
+
+```bash
+alias x9_fuzz="python3 $HOME/Projects/automation/x9/x9_fuzz.py"
+alias x9_run="python3 $HOME/Projects/automation/x9/x9_fuzz.py"
+alias x9="python3 $HOME/Projects/automation/x9/x9.py"
+```
