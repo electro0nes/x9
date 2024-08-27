@@ -4,6 +4,13 @@ import sys
 import json
 from collections import defaultdict
 
+# List of unwanted extensions
+bad_extensions = ['.json', '.js', '.fnt', '.ogg', '.css', '.jpg', '.jpeg', '.png', '.svg', 
+                  '.img', '.gif', '.exe', '.mp4', '.flv', '.pdf', '.doc', '.ogv', '.webm', 
+                  '.wmv', '.webp', '.mov', '.mp3', '.m4a', '.m4p', '.ppt', '.pptx', '.scss', 
+                  '.tif', '.tiff', '.ttf', '.otf', '.woff', '.woff2', '.bmp', '.ico', '.eot', 
+                  '.htc', '.swf', '.rtf', '.image', '.rf', '.txt', 'xml', 'zip', 'msi']
+
 def run_command_in_zsh(command):
     """Run a shell command and return its output."""
     try:
@@ -28,51 +35,73 @@ def group_files_by_domain():
     
     return domain_files
 
+def filter_urls(urls):
+    """Filter out URLs that end with any of the bad extensions."""
+    filtered_urls = []
+    for url in urls:
+        if not any(url.lower().endswith(ext) for ext in bad_extensions):
+            filtered_urls.append(url)
+    return filtered_urls
+
 def run_x9_on_files(domain_files, output_log):
-    """Run X9 on all grouped files."""
+    """Run X9 on each URL in each file one by one."""
     for domain_prefix, files in domain_files.items():
         for part_file in files:
-            print(f"Running X9 on {part_file}")
-            x9_command = f"python3 x9.py -l {part_file} -gs all -vs suffix -v 'moein' -p parameters/top_xss_parameter.txt"
-            output = run_command_in_zsh(x9_command)
-            if output_log:
-                with open(output_log, 'a') as log_file:
-                    log_file.write(f"--- Running X9 on {part_file} ---\n{output}\n")
+            with open(part_file, 'r') as file:
+                urls = [url.strip() for url in file.readlines()]
+            
+            # Filter URLs
+            urls = filter_urls(urls)
+            
+            for url in urls:
+                print(f"Running X9 on {url} from {part_file}")
+                x9_command = f"python3 ~/project/automation/x9/x9.py -u '{url}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt | nuclei -t ~/project/nuclei-templates/xss-discovery.yaml"
+                output = run_command_in_zsh(x9_command)
+                if output_log:
+                    with open(output_log, 'a') as log_file:
+                        log_file.write(f"--- Running X9 on {url} from {part_file} ---\n{output}\n")
 
 def run_fallparams_on_files(domain_files, output_log):
-    """Run fallparams on all grouped files and print JSON output."""
+    """Run fallparams on each URL in each file one by one and process them individually."""
     for domain_prefix, files in domain_files.items():
         for part_file in files:
-            print(f"Running fallparams on {part_file}")
-            fallparams_command = f"fallparams -u {part_file} -o parameters.txt"
-            run_command_in_zsh(fallparams_command)
+            with open(part_file, 'r') as file:
+                urls = [url.strip() for url in file.readlines()]
+            
+            # Filter URLs
+            urls = filter_urls(urls)
+            
+            for url in urls:
+                print(f"Running fallparams on {url} from {part_file}")
 
-            if os.path.exists('parameters.txt'):
-                with open('parameters.txt', 'r') as param_file:
-                    params = [param.strip() for param in param_file.readlines()]
+                # Run fallparams command
+                fallparams_command = f"fallparams -u '{url}' -o parameters.txt"
+                run_command_in_zsh(fallparams_command)
 
-                with open(part_file, 'r') as file:
-                    urls = [url.strip() for url in file.readlines()]
+                # Check if parameters.txt exists and is non-empty
+                parameters_path = 'parameters.txt'
+                if os.path.exists(parameters_path) and os.path.getsize(parameters_path) > 0:
+                    with open(parameters_path, 'r') as param_file:
+                        params = [param.strip() for param in param_file.readlines()]
+                else:
+                    # If parameters.txt is missing or empty, continue with empty parameters
+                    print(f"parameters.txt is missing or empty after running fallparams on {url} from {part_file}")
+                    params = []
 
                 # Construct JSON output for x9
                 json_output = {
-                    "urls": urls,
+                    "urls": [url],
                     "params": params
                 }
 
-                # Print JSON output
-                # print(json.dumps(json_output))
-#
-                # Optionally, run x9 with the JSON output if needed
-                x9_command = f"python3 x9.py -j '{json.dumps(json_output)}' -gs all -vs suffix -v '\'electro0neinject\',<b/electro0neinject' -p parameters/top_xss_parameter.txt | nuclei -t ~/Projects/nuclei-templates/xss-discovery.yaml"
+                # Run x9 with the JSON output for this specific URL
+                x9_command = f"python3 ~/project/automation/x9/x9.py -j '{json.dumps(json_output)}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt | nuclei -t ~/project/nuclei-templates/xss-discovery.yaml"
                 output_j = run_command_in_zsh(x9_command)
                 print(x9_command)
 
                 if output_log:
                     with open(output_log, 'a') as log_file:
-                        log_file.write(f"--- Processed {part_file} with fallparams ---{output_j} \n")
-            else:
-                print(f"parameters.txt not found after running fallparams on {part_file}")
+                        log_file.write(f"--- Processed {url} from {part_file} with fallparams ---\n{output_j}\n")
 
 def main(parameter_discovery=False):
     """Main function to run the attack based on input."""
@@ -85,12 +114,12 @@ def main(parameter_discovery=False):
         print("Running parameter discovery with fallparams.")
         run_fallparams_on_files(domain_files, output_log)
     else:
-        print("Running X9 directly on part files.")
+        print("Running X9 directly on URLs in part files.")
         run_x9_on_files(domain_files, output_log)
 
 if __name__ == "__main__":
     if len(sys.argv) > 2:
-        print("Usage: python3 attack.py [true]")
+        print("Usage: python3 x9_run.py [true]")
         sys.exit(1)
 
     parameter_discovery = len(sys.argv) == 2 and sys.argv[1].lower() == 'true'

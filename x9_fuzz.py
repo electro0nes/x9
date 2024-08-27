@@ -21,6 +21,12 @@ def parse_domain(url):
     domain = parsed_url.netloc
     return domain
 
+def replace_http_with_https(url):
+    """Replace 'http' with 'https' in the URL."""
+    if url.startswith('http://'):
+        return 'https://' + url[7:]
+    return url
+
 def save_urls(urls_by_domain):
     """Saves URLs grouped by their domains/subdomains into separate files."""
     for domain, urls in urls_by_domain.items():
@@ -54,12 +60,15 @@ def main(domain, run_katana):
     passive_file = f"{domain}.passive"
     
     if not os.path.exists(passive_file):
-        nice_passive_command = f"python3 /home/electro0ne/Projects/Scripts/nice_passive.py {domain}"
+        nice_passive_command = f"python3 ~/project/Scripts/nice_passive.py {domain}"
         run_command_in_zsh(nice_passive_command)
     
     if os.path.exists(passive_file):
         with open(passive_file, 'r') as file:
             urls.extend(file.read().splitlines())
+    
+    # Replace 'http' with 'https' in all URLs
+    urls = [replace_http_with_https(url) for url in urls]
     
     # Optionally run nice_katana
     if run_katana.lower() == 'true':
