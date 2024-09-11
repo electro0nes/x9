@@ -32,12 +32,6 @@ def run_x9_on_files(domain_files, output_log):
     """Run X9 on all grouped files."""
     for domain_prefix, files in domain_files.items():
         for part_file in files:
-            print(f"Running X9 on {part_file}")
-            x9_command = f"python3 ~/project/automation/x9/x9.py -l {part_file} -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt -c 40 | nuclei -t ~/project/nuclei-templates/xss-discovery.yaml"
-            output = run_command_in_zsh(x9_command)
-            if output_log:
-                with open(output_log, 'a') as log_file:
-                    log_file.write(f"--- Running X9 on {part_file} ---\n{output}\n")
             with open(part_file, 'r') as file:
                 urls = [url.strip() for url in file.readlines()]
 
@@ -54,56 +48,10 @@ def run_x9_on_files(domain_files, output_log):
             # Remove the file after processing all URLs in it
             os.remove(part_file)
 
-
 def run_fallparams_on_files(domain_files, output_log):
     """Run fallparams on each URL in each file one by one and process them individually."""
     for domain_prefix, files in domain_files.items():
         for part_file in files:
-            print(f"Running fallparams on {part_file}")
-
-            # Check if the URL file is empty
-            if os.path.getsize(part_file) == 0:
-                print(f"Skipping {part_file} because it is empty.")
-                continue
-
-            # Run fallparams command
-            fallparams_command = f"fallparams -u {part_file} -o parameters.txt"
-            run_command_in_zsh(fallparams_command)
-
-            # Check if parameters.txt exists and is non-empty
-            parameters_path = 'parameters.txt'
-            if os.path.exists(parameters_path) and os.path.getsize(parameters_path) > 0:
-                with open(parameters_path, 'r') as param_file:
-                    params = [param.strip() for param in param_file.readlines()]
-            else:
-                # If parameters.txt is missing or empty, continue with empty parameters
-                print(f"parameters.txt is missing or empty after running fallparams on {part_file}")
-                params = []
-
-            with open(part_file, 'r') as file:
-                urls = [url.strip() for url in file.readlines()]
-
-            # Skip processing if URLs list is empty
-            if not urls:
-                print(f"Skipping {part_file} because it contains no URLs.")
-                continue
-
-            # Construct JSON output for x9
-            json_output = {
-                "urls": urls,
-                "params": params
-            }
-
-            # Optionally, run x9 with the JSON output if needed
-            x9_command = f"python3 ~/project/automation/x9/x9.py -j '{json.dumps(json_output)}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt -c 40 | nuclei -t ~/project/nuclei-templates/xss-discovery.yaml"
-            output_j = run_command_in_zsh(x9_command)
-            print()
-            print(f"{x9_command}")
-            print()
-
-            if output_log:
-                with open(output_log, 'a') as log_file:
-                    log_file.write(f"--- Processed {part_file} with fallparams ---\n{output_j}\n")
             with open(part_file, 'r') as file:
                 urls = [url.strip() for url in file.readlines()]
 

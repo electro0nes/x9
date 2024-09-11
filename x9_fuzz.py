@@ -66,10 +66,6 @@ def main(domain, run_katana):
     if os.path.exists(passive_file):
         with open(passive_file, 'r') as file:
             urls.extend(file.read().splitlines())
-    
-    # Replace 'http' with 'https' in all URLs
-    urls = [replace_http_with_https(url) for url in urls]
-    
 
     # Replace 'http' with 'https' in all URLs
     urls = [replace_http_with_https(url) for url in urls]
