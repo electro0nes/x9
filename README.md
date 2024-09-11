@@ -5,6 +5,9 @@
 ### install requirement's
 ```py
 pip3 install -r requirements.txt
+sudo chmod +x x9.py
+sudo chmod +x x9_run.py
+sudo chmod +x x9_fuzz.py
 ```
 
 ## method

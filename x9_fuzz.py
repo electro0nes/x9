@@ -58,11 +58,11 @@ def main(domain, run_katana):
     # Run nice_passive to get URLs
     print(f"Running nice_passive for domain: {domain}")
     passive_file = f"{domain}.passive"
-    
+
     if not os.path.exists(passive_file):
-        nice_passive_command = f"python3 ~/project/Scripts/nice_passive.py {domain}"
+        nice_passive_command = f"python3 ~/Projects/Scripts/nice_passive.py {domain}"
         run_command_in_zsh(nice_passive_command)
-    
+
     if os.path.exists(passive_file):
         with open(passive_file, 'r') as file:
             urls.extend(file.read().splitlines())
@@ -70,6 +70,10 @@ def main(domain, run_katana):
     # Replace 'http' with 'https' in all URLs
     urls = [replace_http_with_https(url) for url in urls]
     
+
+    # Replace 'http' with 'https' in all URLs
+    urls = [replace_http_with_https(url) for url in urls]
+
     # Optionally run nice_katana
     if run_katana.lower() == 'true':
         print(f"Running nice_katana for domain: {domain}")
@@ -93,7 +97,7 @@ def main(domain, run_katana):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python runm.py <domain> <true/false>")
+        print("Usage: python x9_fuzz.py <domain> <true/false>")
         sys.exit(1)
 
     domain = sys.argv[1]

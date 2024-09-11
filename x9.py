@@ -89,7 +89,6 @@ def process_json_input(json_input):
         return [], []
 
 def main():
-    print_banner()
     parser = argparse.ArgumentParser(description="Electro0ne X9 - Bug Bounty Vulnerability Discovery Tool")
 
     # Define the arguments
@@ -140,7 +139,7 @@ def main():
             params = params_from_json
         else:
             params.extend(params_from_json)
-            
+
         for url in urls:
             generated_urls = fuzz_parameters(url, params, args.chunk, args.value, args.value_strategy)
             all_generated_urls.extend(generated_urls)
