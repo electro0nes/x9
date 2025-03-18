@@ -11,6 +11,7 @@ tmp
 .Python
 build/
 develop-eggs/
+*.passive
 dist/
 downloads/
 eggs/

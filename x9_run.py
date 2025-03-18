@@ -2,7 +2,54 @@ import os
 import subprocess
 import sys
 import json
+import requests
+import datetime
 from collections import defaultdict
+from dotenv import load_dotenv  
+
+load_dotenv()
+
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+NUCLEI_ROUTE = os.getenv("NUCLEI_ROUTE")
+SCRIPT_ROUTE = os.getenv("SCRIPT_ROUTE")
+
+def send_discord_alert(nuclei_output, part_file):
+    """Send a Discord notification with ANSI-colored output inside a code block."""
+    if not DISCORD_WEBHOOK_URL:
+        print("⚠️ DISCORD_WEBHOOK_URL is not set or is empty!")
+        return
+
+    now_timestamp = datetime.datetime.utcnow().isoformat()
+
+    # Wrap the output in a ```ansi code block```
+    formatted_output = f"```ansi\n{nuclei_output}\n```"
+
+    embed = {
+        "title": "🚨 XSS Detected via X9!",
+        "description": formatted_output,  
+        "color": 16711680,  # Red color
+        "footer": {
+            "text": "XSS Alert | Automated System",
+            "icon_url": "https://cdn-icons-png.flaticon.com/512/6192/6192510.png"
+        },
+        "timestamp": now_timestamp
+    }
+
+    message = {
+        "username": "XSS Scanner",
+        "embeds": [embed]
+    }
+
+    headers = {"Content-Type": "application/json"}
+    
+    try:
+        response = requests.post(DISCORD_WEBHOOK_URL, json=message, headers=headers)
+        if response.status_code in [200, 204]:  
+            print("✅ Discord alert sent successfully!")
+        else:
+            print(f"⚠️ Failed to send Discord alert: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"⚠️ Error sending Discord alert: {str(e)}")
 
 def run_command_in_zsh(command):
     """Run a shell command and return its output."""
@@ -22,30 +69,32 @@ def group_files_by_domain():
     domain_files = defaultdict(list)
 
     for part_file in files:
-        # Extract domain prefix (e.g., icollab.info from icollab.info.part1)
         domain_prefix = part_file.split('.part')[0]
         domain_files[domain_prefix].append(part_file)
 
     return domain_files
 
 def run_x9_on_files(domain_files, output_log):
-    """Run X9 on all grouped files."""
+    """Run X9 and check for XSS detections."""
     for domain_prefix, files in domain_files.items():
         for part_file in files:
             with open(part_file, 'r') as file:
                 urls = [url.strip() for url in file.readlines()]
 
-            urls = filter_urls(urls)  # Filter out unwanted URLs
+            urls = filter_urls(urls)
 
             for url in urls:
                 print(f"Running X9 on {url} from {part_file}")
-                x9_command = f"python3 ~/Projects/automation/x9/x9.py -u '{url}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt | nuclei -t ~/project/nuclei-templates/xss-discovery.yaml"
+                x9_command = f"python3 {SCRIPT_ROUTE} -u '{url}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt | nuclei -t {NUCLEI_ROUTE} -silent"
                 output = run_command_in_zsh(x9_command)
+
+                if output and "electro0neinject" in output: 
+                    send_discord_alert(output, part_file)
+
                 if output_log:
                     with open(output_log, 'a') as log_file:
                         log_file.write(f"--- Running X9 on {url} from {part_file} ---\n{output}\n")
 
-            # Remove the file after processing all URLs in it
             os.remove(part_file)
 
 def run_fallparams_on_files(domain_files, output_log):
@@ -70,26 +119,24 @@ def run_fallparams_on_files(domain_files, output_log):
                     with open(parameters_path, 'r') as param_file:
                         params = [param.strip() for param in param_file.readlines()]
                 else:
-                    # If parameters.txt is missing or empty, continue with empty parameters
                     print(f"parameters.txt is missing or empty after running fallparams on {url} from {part_file}")
                     params = []
 
-                # Construct JSON output for x9
                 json_output = {
                     "urls": [url],
                     "params": params
                 }
 
-                # Run x9 with the JSON output for this specific URL
-                x9_command = f"python3 ~/Projects/automation/x9/x9.py -j '{json.dumps(json_output)}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt | nuclei -t ~/project/nuclei-templates/xss-discovery.yaml"
+                x9_command = f"python3 {SCRIPT_ROUTE} -j '{json.dumps(json_output)}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt | nuclei -t {NUCLEI_ROUTE} -silent"
                 output_j = run_command_in_zsh(x9_command)
                 print(x9_command)
+                if output_j and "electro0neinject" in output_j: 
+                    send_discord_alert(output_j, part_file)
 
                 if output_log:
                     with open(output_log, 'a') as log_file:
                         log_file.write(f"--- Processed {url} from {part_file} with fallparams ---\n{output_j}\n")
 
-            # Remove the file after processing all URLs in it
             os.remove(part_file)
 
 def filter_urls(urls):
@@ -113,7 +160,6 @@ def main(parameter_discovery=False):
     """Main function to run the attack based on input."""
     output_log = "x9.res"
 
-    # Group files by their domain or subdomain
     domain_files = group_files_by_domain()
 
     if parameter_discovery:

@@ -10,8 +10,6 @@ def print_banner():
     Electro0ne X9 - Bug Bounty Vulnerability Discovery Tool
     ============================================================
     """
-    # print(banner)
-
 def read_parameters(param_source):
     if os.path.isfile(param_source):
         try:

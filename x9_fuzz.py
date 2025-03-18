@@ -2,7 +2,11 @@ import subprocess
 import sys
 import os
 from urllib.parse import urlparse
+from dotenv import load_dotenv  
 
+load_dotenv()
+
+NICE_PASSIVE_URO = os.getenv("NICE_PASSIVE_URO")
 def run_command_in_zsh(command):
     """Run a shell command and return its output."""
     try:
@@ -60,7 +64,7 @@ def main(domain, run_katana):
     passive_file = f"{domain}.passive"
 
     if not os.path.exists(passive_file):
-        nice_passive_command = f"python3 ~/Projects/Scripts/nice_passive.py {domain}"
+        nice_passive_command = f"python3 {NICE_PASSIVE_URO} {domain}"
         run_command_in_zsh(nice_passive_command)
 
     if os.path.exists(passive_file):
