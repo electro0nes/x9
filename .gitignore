@@ -12,6 +12,7 @@ tmp
 build/
 develop-eggs/
 *.passive
+*.part*
 dist/
 downloads/
 eggs/
