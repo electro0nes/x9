@@ -13,6 +13,16 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 NUCLEI_ROUTE = os.getenv("NUCLEI_ROUTE")
 SCRIPT_ROUTE = os.getenv("SCRIPT_ROUTE")
 
+def is_json_response(url):
+    """Check if the URL returns a JSON response by inspecting the Content-Type header."""
+    try:
+        response = requests.get(url, timeout=5)  # Make a request to get headers
+        content_type = response.headers.get("Content-Type", "").lower()
+        return "application/json" in content_type  # Check if JSON response
+    except Exception as e:
+        print(f"⚠️ Error checking Content-Type: {str(e)}")
+        return False  # Assume not JSON if request fails
+
 def send_discord_alert(nuclei_output, part_file):
     """Send a Discord notification with ANSI-colored output inside a code block."""
     if not DISCORD_WEBHOOK_URL:
@@ -20,14 +30,12 @@ def send_discord_alert(nuclei_output, part_file):
         return
 
     now_timestamp = datetime.datetime.utcnow().isoformat()
-
-    # Wrap the output in a ```ansi code block```
     formatted_output = f"```ansi\n{nuclei_output}\n```"
 
     embed = {
         "title": "🚨 XSS Detected via X9!",
         "description": formatted_output,  
-        "color": 16711680,  # Red color
+        "color": 16711680,  
         "footer": {
             "text": "XSS Alert | Automated System",
             "icon_url": "https://cdn-icons-png.flaticon.com/512/6192/6192510.png"
@@ -84,6 +92,10 @@ def run_x9_on_files(domain_files, output_log):
             urls = filter_urls(urls)
 
             for url in urls:
+                if is_json_response(url):
+                    print(f"❌ Skipping {url} (JSON response, no XSS possible)")
+                    continue  # Skip URLs with JSON responses
+
                 print(f"Running X9 on {url} from {part_file}")
                 x9_command = f"python3 {SCRIPT_ROUTE} -u '{url}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt | nuclei -t {NUCLEI_ROUTE} -silent"
                 output = run_command_in_zsh(x9_command)
@@ -97,6 +109,7 @@ def run_x9_on_files(domain_files, output_log):
 
             os.remove(part_file)
 
+
 def run_fallparams_on_files(domain_files, output_log):
     """Run fallparams on each URL in each file one by one and process them individually."""
     for domain_prefix, files in domain_files.items():
@@ -104,16 +117,18 @@ def run_fallparams_on_files(domain_files, output_log):
             with open(part_file, 'r') as file:
                 urls = [url.strip() for url in file.readlines()]
 
-            urls = filter_urls(urls)  # Filter out unwanted URLs
+            urls = filter_urls(urls)
 
             for url in urls:
+                if is_json_response(url):
+                    print(f"❌ Skipping {url} (JSON response, no XSS possible)")
+                    continue  # Skip URLs with JSON responses
+
                 print(f"Running fallparams on {url} from {part_file}")
 
-                # Run fallparams command
                 fallparams_command = f"fallparams -u '{url}' -o parameters.txt"
                 run_command_in_zsh(fallparams_command)
 
-                # Check if parameters.txt exists and is non-empty
                 parameters_path = 'parameters.txt'
                 if os.path.exists(parameters_path) and os.path.getsize(parameters_path) > 0:
                     with open(parameters_path, 'r') as param_file:
@@ -129,7 +144,7 @@ def run_fallparams_on_files(domain_files, output_log):
 
                 x9_command = f"python3 {SCRIPT_ROUTE} -j '{json.dumps(json_output)}' -gs all -vs suffix -v '<b/electro0neinject,\"electro0neinject\"',\'electro0neinject\''' -p parameters/top_xss_parameter.txt | nuclei -t {NUCLEI_ROUTE} -silent"
                 output_j = run_command_in_zsh(x9_command)
-                print(x9_command)
+
                 if output_j and "electro0neinject" in output_j: 
                     send_discord_alert(output_j, part_file)
 
