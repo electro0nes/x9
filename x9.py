@@ -1,15 +1,35 @@
+#x9.py
 import argparse
 import json
 import requests
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, quote_plus
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, quote_plus, time
 import os
 
+DEFAULT_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:108.0) Gecko/20100101 Firefox/108.0",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "X-Forwarded-For": "127.0.0.1"
+}
 def print_banner():
     banner = """
     ============================================================
     Electro0ne X9 - Bug Bounty Vulnerability Discovery Tool
     ============================================================
     """
+
+def parse_headers(header_list):
+    headers = DEFAULT_HEADERS.copy()
+
+    # Override or add custom headers on top
+    if header_list:
+        for header in header_list:
+            if ':' in header:
+                key, value = header.split(':', 1)
+                headers[key.strip()] = value.strip()
+
+    return headers
 def read_parameters(param_source):
     if os.path.isfile(param_source):
         try:
@@ -62,17 +82,17 @@ def format_url(url, params):
     encoded_params = urlencode(params, doseq=True)
     return f"{url}?{encoded_params}" if encoded_params else url
 
-def send_get_request(url):
+def send_get_request(url, headers=None):
     try:
-        response = requests.get(url)
-        print(f"GET request to {url} returned status code {response.status_code}")
+        response = requests.get(url, headers=headers)
+        print(f"GET {url} - {response.status_code}")
     except requests.RequestException as e:
         print(f"GET request failed: {e}")
 
-def send_post_request(url, data):
+def send_post_request(url, data, headers=None):
     try:
-        response = requests.post(url, data=data)
-        print(f"POST request to {url} with data {data} returned status code {response.status_code}")
+        response = requests.post(url, data=data, headers=headers)
+        print(f"POST {url} - {response.status_code}")
     except requests.RequestException as e:
         print(f"POST request failed: {e}")
 
@@ -108,7 +128,8 @@ def main():
     parser.add_argument('-o', '--output', help="Output format", choices=['text', 'json'], default='text')
     parser.add_argument('-m', '--method', choices=['get', 'post'], help="HTTP method to use for sending requests", default=None)
     parser.add_argument('-d', '--data', help="Data to send with POST requests (only used if method is POST)", default=None)
-
+    parser.add_argument('-H', '--header', action='append', help="Custom headers (e.g. 'User-Agent: CustomAgent'). Use multiple times for multiple headers.")
+    parser.add_argument('--rate-limit', type=int, help="Rate limit for sending requests (requests per second)")
     args = parser.parse_args()
 
     # Handle silent mode
@@ -168,14 +189,17 @@ def main():
         for url in all_generated_urls:
             print(url)
 
-    # Send requests based on chosen method
+    headers = parse_headers(args.header)
+    delay = 1 / args.rate_limit if args.rate_limit else 0
     if args.method:
         for url in all_generated_urls:
             if args.method == 'get':
-                send_get_request(url)
+                send_get_request(url, headers=headers)
             elif args.method == 'post':
                 data = args.data if args.data else parse_qs(urlparse(url).query)
-                send_post_request(url, data)
+                send_post_request(url, data, headers=headers)
+            if delay:
+                time.sleep(delay)
 
 if __name__ == "__main__":
     main()
