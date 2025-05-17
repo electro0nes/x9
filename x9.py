@@ -2,7 +2,8 @@
 import argparse
 import json
 import requests
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, quote_plus, time
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, quote_plus
+import time
 import os
 
 DEFAULT_HEADERS = {

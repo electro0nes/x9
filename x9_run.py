@@ -14,6 +14,12 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 NUCLEI_ROUTE = os.getenv("NUCLEI_ROUTE")
 SCRIPT_ROUTE = os.getenv("SCRIPT_ROUTE")
 
+def ensure_directory_exists(directory):
+    """Create directory if it doesn't exist."""
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Created directory: {directory}")
+
 def is_json_response(url):
     """Check if the URL returns a JSON response by inspecting the Content-Type header."""
     try:
@@ -74,16 +80,21 @@ def run_command_in_zsh(command):
 
 def group_files_by_domain():
     """Group part files by their domain or subdomain."""
-    files = sorted([f for f in os.listdir('.') if f.count('.') >= 2 and '.part' in f])
+    fuzz_dir = 'fuzz'
+    if not os.path.exists(fuzz_dir):
+        print(f"⚠️ Directory '{fuzz_dir}' not found!")
+        return {}
+
+    files = sorted([f for f in os.listdir(fuzz_dir) if f.count('.') >= 2 and '.part' in f])
     domain_files = defaultdict(list)
 
     for part_file in files:
         domain_prefix = part_file.split('.part')[0]
-        domain_files[domain_prefix].append(part_file)
+        domain_files[domain_prefix].append(os.path.join(fuzz_dir, part_file))
 
     return domain_files
 
-def run_x9_on_files(domain_files, output_log):
+def run_x9_on_files(domain_files, output_file):
     """Run X9 and check for XSS detections."""
     for domain_prefix, files in domain_files.items():
         for part_file in files:
@@ -104,14 +115,14 @@ def run_x9_on_files(domain_files, output_log):
                 if output and "electro0neinject" in output: 
                     send_discord_alert(output, part_file)
 
-                if output_log:
-                    with open(output_log, 'a') as log_file:
+                if output_file:
+                    with open(output_file, 'a') as log_file:
                         log_file.write(f"--- Running X9 on {url} from {part_file} ---\n{output}\n")
 
             os.remove(part_file)
+            print(f"Removed processed file: {part_file}")
 
-
-def run_fallparams_on_files(domain_files, output_log):
+def run_fallparams_on_files(domain_files, output_file):
     """Run fallparams on each URL in each file one by one and process them individually."""
     for domain_prefix, files in domain_files.items():
         for part_file in files:
@@ -149,11 +160,12 @@ def run_fallparams_on_files(domain_files, output_log):
                 if output_j and "electro0neinject" in output_j: 
                     send_discord_alert(output_j, part_file)
 
-                if output_log:
-                    with open(output_log, 'a') as log_file:
+                if output_file:
+                    with open(output_file, 'a') as log_file:
                         log_file.write(f"--- Processed {url} from {part_file} with fallparams ---\n{output_j}\n")
 
             os.remove(part_file)
+            print(f"Removed processed file: {part_file}")
 
 def filter_urls(urls):
     """Filter out URLs that end with unwanted file extensions."""
@@ -174,16 +186,21 @@ def filter_urls(urls):
 
 def main(parameter_discovery=False):
     """Main function to run the attack based on input."""
-    output_log = "x9.res"
+    output_file = os.path.join('fuzz', 'x9.res')
 
     domain_files = group_files_by_domain()
+    if not domain_files:
+        print("No files to process in the fuzz directory!")
+        return
 
     if parameter_discovery:
         print("Running parameter discovery with fallparams.")
-        run_fallparams_on_files(domain_files, output_log)
+        run_fallparams_on_files(domain_files, output_file)
     else:
         print("Running X9 directly on part files.")
-        run_x9_on_files(domain_files, output_log)
+        run_x9_on_files(domain_files, output_file)
+
+    print(f"Results saved in {output_file}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 2:

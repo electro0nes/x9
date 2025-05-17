@@ -8,6 +8,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 NICE_PASSIVE_URO = os.getenv("NICE_PASSIVE_URO")
+
+def ensure_directory_exists(directory):
+    """Create directory if it doesn't exist."""
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Created directory: {directory}")
+
 def run_command_in_zsh(command):
     """Run a shell command and return its output."""
     try:
@@ -32,30 +39,29 @@ def replace_http_with_https(url):
         return 'https://' + url[7:]
     return url
 
-def save_urls(urls_by_domain):
-    """Saves URLs grouped by their domains/subdomains into separate files."""
-    for domain, urls in urls_by_domain.items():
-        split_urls(urls, domain)
-
-def split_urls(urls, domain, lines_per_file=1000):
+def split_and_save_urls(urls, base_domain, lines_per_file=1000):
     """Splits a list of URLs into multiple files with a specific number of URLs per file."""
-    part_number = 1
-    current_part = []
-    for i, url in enumerate(urls, 1):
-        current_part.append(url + '\n')
-        if i % lines_per_file == 0:
-            save_part(current_part, domain, part_number)
-            part_number += 1
-            current_part = []
-    if current_part:
-        save_part(current_part, domain, part_number)
+    ensure_directory_exists('fuzz')
+    
+    total_urls = len(urls)
+    print(f"Total URLs to process: {total_urls}")
+    
+    for i in range(0, total_urls, lines_per_file):
+        part_number = (i // lines_per_file) + 1
+        chunk = urls[i:i + lines_per_file]
+        
+        if chunk:  # Only save if we have URLs in this chunk
+            part_file_name = os.path.join('fuzz', f"{base_domain}.part{part_number}")
+            with open(part_file_name, 'w') as part_file:
+                part_file.writelines(url + '\n' for url in chunk)
+            print(f"Saved {len(chunk)} URLs to {part_file_name}")
 
-def save_part(urls, domain, part_number):
-    """Saves a part of the split URLs."""
-    part_file_name = f"{domain}.part{part_number}"
-    with open(part_file_name, 'w') as part_file:
-        part_file.writelines(urls)
-    print(f"Saved {part_file_name}")
+def cleanup_files(domain):
+    """Clean up temporary files."""
+    passive_file = f"{domain}.passive"
+    if os.path.exists(passive_file):
+        os.remove(passive_file)
+        print(f"Cleaned up {passive_file}")
 
 def main(domain, run_katana):
     urls = []
@@ -71,6 +77,7 @@ def main(domain, run_katana):
     if os.path.exists(passive_file):
         with open(passive_file, 'r') as file:
             urls.extend(file.read().splitlines())
+        print(f"Read {len(urls)} URLs from passive file")
 
     # Replace 'http' with 'https' in all URLs
     urls = [replace_http_with_https(url) for url in urls]
@@ -80,21 +87,24 @@ def main(domain, run_katana):
         print(f"Running nice_katana for domain: {domain}")
         katana_command = f"echo {domain} | nice_katana"
         katana_output = run_command_in_zsh(katana_command)
+        if katana_output:
+            katana_urls = katana_output.splitlines()
+            urls.extend(katana_urls)
+            print(f"Added {len(katana_urls)} URLs from katana")
 
-    # Group URLs by their domain
-    urls_by_domain = {}
-    for url in urls:
-        domain = parse_domain(url)
-        if domain not in urls_by_domain:
-            urls_by_domain[domain] = []
-        urls_by_domain[domain].append(url)
+    # Remove any duplicate URLs while preserving order
+    urls = list(dict.fromkeys(urls))
+    print(f"Total unique URLs: {len(urls)}")
 
-    # Save URLs grouped by domain/subdomain
-    if urls_by_domain:
-        print("Splitting URLs into parts by domain/subdomain.")
-        save_urls(urls_by_domain)
+    # Split and save URLs
+    if urls:
+        print("Splitting URLs into parts...")
+        split_and_save_urls(urls, domain)
     else:
         print("No URLs found.")
+
+    # Clean up temporary files
+    cleanup_files(domain)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
