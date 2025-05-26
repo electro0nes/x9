@@ -4,150 +4,169 @@
 
 ## Overview
 
-X9 is a powerful automated XSS (Cross-Site Scripting) discovery suite that combines multiple tools to efficiently find XSS vulnerabilities in web applications. The suite uses a pipeline approach:
+**X9** is a powerful automated Cross-Site Scripting (XSS) discovery suite that streamlines the entire process of uncovering XSS vulnerabilities. It uses a modular pipeline consisting of:
 
-1. **URL Discovery**: Uses Wayback Machine and GAU for comprehensive URL harvesting
-2. **Parameter Analysis**: Processes and analyzes URL parameters
-3. **XSS Fuzzing**: Automated testing of potential XSS vectors
+1. **URL Discovery** – Harvests URLs using Wayback Machine and GAU
+2. **Parameter Analysis** – Extracts and analyzes query parameters
+3. **XSS Fuzzing** – Runs intelligent fuzzing using crafted payloads
+
+---
 
 ## Features
 
-- 🔍 Comprehensive URL discovery using multiple sources
-- 🚀 Automated parameter extraction and analysis
-- 🎯 Intelligent XSS payload fuzzing
-- 📊 Structured output formats (JSON, text)
-- ⚡ Parallel processing for faster results
+* 🔍 Comprehensive URL discovery via multiple sources
+* 🧐 Smart parameter extraction and analysis
+* 🎯 Intelligent and customizable XSS payload fuzzing
+* 📊 Supports structured output (JSON, text)
+* ⚡ Parallel and batch processing for faster scanning
+
+---
 
 ## Installation
 
 ### Prerequisites
 
 ```bash
-# Install required Python packages
+# Install required Python dependencies
 pip3 install -r requirements.txt
-# Install URO
-https://github.com/s0md3v/uro
 
-# Make scripts executable
-chmod +x x9.py
-chmod +x x9_run.py
-chmod +x x9_fuzz.py
+# Install URO
+git clone https://github.com/s0md3v/uro && cd uro && sudo python3 setup.py install
+
+# Install Waybackurls
+go install github.com/tomnomnom/waybackurls@latest
+
+# Install GAU
+go install github.com/lc/gau/v2/cmd/gau@latest
 ```
 
-### Configuration
-
-Create a `.env` file with the following configurations:
+Make scripts executable:
 
 ```bash
-DISCORD_WEBHOOK_URL=""    # For notifications
-NUCLEI_ROUTE=""          # Path to nuclei templates
-SCRIPT_ROUTE=""          # Path to custom scripts
-NICE_PASSIVE_URO=""      # Nice passive configuration
+chmod +x x9.py x9_run.py x9_fuzz.py x9_passive.py
 ```
+
+---
+
+## Configuration
+
+Create a `.env` file with the following variables:
+
+```bash
+DISCORD_WEBHOOK_URL=""   # Discord webhook for notifications
+NUCLEI_ROUTE=""          # Path to your Nuclei templates (e.g., xss-discovery.yaml)
+SCRIPT_ROUTE=""          # Path to custom script: x9.py
+X9_PASSIVE=""            # Path to passive script: x9_passive.py
+```
+
+---
 
 ## Usage
 
-### 1. URL Discovery and Parameter Extraction
+### 1. URL Discovery & Parameter Extraction
 
 ```bash
-# Run the fuzzer to gather URLs
-python3 x9_fuzz.py example.com  <true/false> # for katana
-
-# This will:
-# - Fetch URLs from Wayback Machine
-# - Gather URLs using GAU
-# - Extract and analyze parameters
+python3 x9_fuzz.py example.com <true/false>
 ```
+
+* `true` enables Katana for discovery (not recommended for general use)
+* `false` sticks to GAU and Wayback
+
+This step will:
+
+* Gather URLs from multiple sources
+* Deduplicate them
+* Extract and identify parameters
+
+---
 
 ### 2. XSS Testing
 
 ```bash
-# Run the main XSS discovery
 python3 x9.py -l discovered_urls.txt -v 'xss_payload' -p file,text -gs generate_strategy -vs value_strategy -o json -m get,post
-
-# Parameters:
-# -l: List of URLs to test
-# -v: XSS payload to test
-# -p: Parameters to fuzz
-# -gs: Generation strategy
-# -vs: Value strategy
-# -o: Output format
-# -m: HTTP methods to test
 ```
+
+**Options:**
+
+* `-l` File containing URLs to test
+* `-v` XSS payload to inject
+* `-p` Parameter sources (`file`, `text`, or both)
+* `-gs` Generation strategy (e.g., reflect-based, param combo)
+* `-vs` Value strategy (e.g., random, static, mirrored)
+* `-o` Output format (`json`, `text`)
+* `-m` HTTP methods to test (`get`, `post`)
+
+---
 
 ### 3. Advanced Fuzzing
 
 ```bash
-# Run advanced fuzzing on discovered endpoints
-python3 x9_run.py urls.txt
-
-# This will:
-# - Process URLs in batches
-# - Apply multiple XSS payloads
-# - Test different parameter combinations
+python3 x9_run.py <true/false>
 ```
 
-## Workflow Example
+This step will:
 
-1. **Gather URLs**:
-   ```bash
-   x9_fuzz target.com <true/false> # for katana
-   ```
+* Process the collected URLs in batches
+* Apply advanced payload fuzzing
+* Test multiple parameter/value combinations
 
-2. **Initial XSS Scan**:
-   ```bash
-   x9 -l urls.txt -v '<script>alert(1)</script>' -gs normal -vs replace
-   ```
+> ✅ Recommended: Use `false` for Katana option unless explicitly needed.
 
+---
 
-## Best Practices
+## Example Workflow
 
-- Always ensure you have permission to test the target
-- Start with small payload sets before large-scale testing
-- Monitor system resources during large scans
-- Use rate limiting to avoid overwhelming targets
+```bash
+# Step 1: Discover URLs
+python3 x9_fuzz.py target.com false
+
+# Step 2: Initial XSS Scan
+python3 x9_run.py false
+```
+
+---
 
 ## Output Formats
 
+Supported formats:
 
-## Shell Aliases
+* `JSON` – Machine-readable, useful for integrations
+* `Text` – Human-readable, ideal for quick reviews
 
-Add these to your `.bashrc` or `.zshrc` for quick access:
+Use the `-o` flag to select the format:
+
+```bash
+-o json,text
+```
+
+---
+
+## Bash Aliases
+
+Add the following to your `.bashrc` or `.zshrc`:
 
 ```bash
 alias x9_fuzz="python3 $HOME/Projects/automation/x9/x9_fuzz.py"
 alias x9_run="python3 $HOME/Projects/automation/x9/x9_run.py"
 alias x9="python3 $HOME/Projects/automation/x9/x9.py"
+alias x9_passive="python3 $HOME/Projects/automation/x9/x9_passive.py"
 ```
+
+---
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please submit a pull request or open an issue to suggest features or report bugs.
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+---
 
 ## Disclaimer
 
-This tool is for educational purposes and authorized testing only. Always obtain proper authorization before testing any systems or applications.
-
-```bash
-DISCORD_WEBHOOK_URL=""
-NUCLEI_ROUTE=""
-SCRIPT_ROUTE=""
-NICE_PASSIVE_URO=""
-```
-
-## method
-```bash
-python3 x9.py -l urls.txt -v 'inject' -p file,text -gs generate_strategy -vs value_strategy -o json,text -c chunk -m post,get
-```
-
-## Bash Profile
-
-```bash
-alias x9_fuzz="python3 $HOME/Projects/automation/x9/x9_fuzz.py"
-alias x9_run="python3 $HOME/Projects/automation/x9/x9_fuzz.py"
-alias x9="python3 $HOME/Projects/automation/x9/x9.py"
-```
+> This tool is intended for **educational** and **authorized security testing** only.
+> Unauthorized use of this tool against targets without permission is **illegal**.

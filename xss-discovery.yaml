@@ -1,0 +1,45 @@
+id: detect-electro0neinject
+info:
+  name: Detect electro0neinject Patterns
+  author: MoeinErfanian
+  severity: medium
+  description: This template detects specific electro0neinject patterns in the body of HTTP responses.
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: or
+    matchers:
+      - type: word
+        words:
+          - "<b/electro0neinject"
+          - 'electro0neinject""'
+          - "electro0neinject''"
+          - '""electro0neinject'
+          - "''electro0neinject"
+          - 'electro0neinject\\""'
+          - "electro0neinject\\''"
+          - '"\\"electro0neinject'
+          - "'\\'electro0neinject"
+        part: body
+        condition: or
+
+  - method: POST
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: or
+    matchers:
+      - type: word
+        words:
+          - "<b/electro0neinject"
+          - 'electro0neinject""'
+          - "electro0neinject''"
+          - '""electro0neinject'
+          - "''electro0neinject"
+          - 'electro0neinject\\""'
+          - "electro0neinject\\''"
+          - '"\\"electro0neinject'
+          - "'\\'electro0neinject"
+        part: body
+        condition: or

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NICE_PASSIVE_URO = os.getenv("NICE_PASSIVE_URO")
+X9_PASSIVE = os.getenv("X9_PASSIVE")
 
 def ensure_directory_exists(directory):
     """Create directory if it doesn't exist."""
@@ -66,13 +66,13 @@ def cleanup_files(domain):
 def main(domain, run_katana):
     urls = []
 
-    # Run nice_passive to get URLs
-    print(f"Running nice_passive for domain: {domain}")
+    # Run X9_PASSIVE to get URLs
+    print(f"Running x9_passive for domain: {domain}")
     passive_file = f"{domain}.passive"
 
     if not os.path.exists(passive_file):
-        nice_passive_command = f"python3 {NICE_PASSIVE_URO} {domain}"
-        run_command_in_zsh(nice_passive_command)
+        x9_passive_command = f"python3 {X9_PASSIVE} {domain}"
+        run_command_in_zsh(x9_passive_command)
 
     if os.path.exists(passive_file):
         with open(passive_file, 'r') as file:
@@ -82,15 +82,15 @@ def main(domain, run_katana):
     # Replace 'http' with 'https' in all URLs
     urls = [replace_http_with_https(url) for url in urls]
 
-    # Optionally run nice_katana
-    if run_katana.lower() == 'true':
-        print(f"Running nice_katana for domain: {domain}")
-        katana_command = f"echo {domain} | nice_katana"
-        katana_output = run_command_in_zsh(katana_command)
-        if katana_output:
-            katana_urls = katana_output.splitlines()
-            urls.extend(katana_urls)
-            print(f"Added {len(katana_urls)} URLs from katana")
+    # # Optionally run nice_katana
+    # if run_katana.lower() == 'true':
+    #     print(f"Running nice_katana for domain: {domain}")
+    #     katana_command = f"echo {domain} | nice_katana"
+    #     katana_output = run_command_in_zsh(katana_command)
+    #     if katana_output:
+    #         katana_urls = katana_output.splitlines()
+    #         urls.extend(katana_urls)
+    #         print(f"Added {len(katana_urls)} URLs from katana")
 
     # Remove any duplicate URLs while preserving order
     urls = list(dict.fromkeys(urls))

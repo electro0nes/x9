@@ -25,10 +25,13 @@ def is_json_response(url):
     try:
         response = requests.get(url, timeout=5)  # Make a request to get headers
         content_type = response.headers.get("Content-Type", "").lower()
-        return "application/json" in content_type  # Check if JSON response
+        return (
+            "application/json" in content_type or
+            "text/javascript" in content_type
+        )
     except Exception as e:
         print(f"⚠️ Error checking Content-Type: {str(e)}")
-        return False  # Assume not JSON if request fails
+        return False 
 
 def send_discord_alert(nuclei_output, part_file):
     """Send a Discord notification with ANSI-colored output inside a code block."""
