@@ -82,15 +82,15 @@ def main(domain, run_katana):
     # Replace 'http' with 'https' in all URLs
     urls = [replace_http_with_https(url) for url in urls]
 
-    # # Optionally run nice_katana
-    # if run_katana.lower() == 'true':
-    #     print(f"Running nice_katana for domain: {domain}")
-    #     katana_command = f"echo {domain} | nice_katana"
-    #     katana_output = run_command_in_zsh(katana_command)
-    #     if katana_output:
-    #         katana_urls = katana_output.splitlines()
-    #         urls.extend(katana_urls)
-    #         print(f"Added {len(katana_urls)} URLs from katana")
+    # Optionally run nice_katana
+    if run_katana.lower() == 'true':
+        print(f"Running nice_katana for domain: {domain}")
+        katana_command = f"echo {domain} | nice_katana"
+        katana_output = run_command_in_zsh(katana_command)
+        if katana_output:
+            katana_urls = katana_output.splitlines()
+            urls.extend(katana_urls)
+            print(f"Added {len(katana_urls)} URLs from katana")
 
     # Remove any duplicate URLs while preserving order
     urls = list(dict.fromkeys(urls))
