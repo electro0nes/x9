@@ -38,6 +38,9 @@ go install github.com/tomnomnom/waybackurls@latest
 
 # Install GAU
 go install github.com/lc/gau/v2/cmd/gau@latest
+
+# Install KATANA
+go install github.com/projectdiscovery/katana/cmd/katana@latest
 ```
 
 Make scripts executable:
@@ -110,7 +113,7 @@ This step will:
 * Apply advanced payload fuzzing
 * Test multiple parameter/value combinations
 
-> ✅ Recommended: Use `false` for Katana option unless explicitly needed.
+> ✅ Recommended: Use `false` for fallparams option unless explicitly needed.
 
 ---
 
